@@ -19,26 +19,34 @@ jobs:
         id: build
         uses: geode-sdk/build-geode-mod@main
 
-      # Debug: show what the action reported
       - name: Show output path (debug)
         run: echo "GEODE_PATH=${{ steps.build.outputs.build-output }}"
 
-      # List the directory so we see the actual .geode filename(s)
-      - name: Verify built files (debug)
+      # Find a .geode file even if build-output is a directory
+      - name: Locate .geode file
+        id: find
+        shell: pwsh
         run: |
-          echo "Listing $Env:GEODE_PATH"
-          dir $Env:GEODE_PATH
-        env:
-          GEODE_PATH: ${{ steps.build.outputs.build-output }}
+          $p = "${{ steps.build.outputs.build-output }}"
+          if (Test-Path $p -PathType Container) {
+            Write-Host "Output is a directory: $p"
+            Get-ChildItem -Path $p -Recurse
+            $file = Get-ChildItem -Path $p -Filter *.geode -Recurse | Select-Object -First 1
+          } else {
+            Write-Host "Output is a file: $p"
+            $file = Get-Item -Path $p
+          }
+          if (-not $file) {
+            Write-Error "No .geode found under $p"
+            exit 1
+          }
+          Write-Host "Found .geode: $($file.FullName)"
+          "GEODE_FILE=$($file.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      # Create/Update the GitHub release and attach the .geode(s)
       - name: Create GitHub Release (attach .geode)
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            ${{ steps.build.outputs.build-output }}\*.geode
-            build\*.geode
-            **\*.geode
+          files: ${{ steps.find.outputs.GEODE_FILE }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
