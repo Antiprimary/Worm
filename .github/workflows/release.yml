@@ -12,19 +12,22 @@ jobs:
   build-and-release:
     runs-on: windows-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Build .geode
         id: build
         uses: geode-sdk/build-geode-mod@main
 
-      - name: Create GitHub Release
+      - name: Show output path (debug)
+        run: echo "GEODE_PATH=${{ steps.build.outputs.build-output }}"
+
+      - name: Create GitHub Release (attach .geode)
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.build.outputs.build-output }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+          files: |
+            ${{ steps.build.outputs.build-output }}
+            # optional fallback globs if needed:
+            build\*.geode
+            **\*.geode
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
