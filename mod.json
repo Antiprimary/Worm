@@ -8,7 +8,7 @@
 	},
 	"id": "antiprime.worm",
 	"name": "Worm",
-	"version": "v1.0.0",
+	"version": "v1.0.1",
 	"developer": "Antiprime",
 	"description": "Play as a worm. Be a worm in Geometry Dash. Worm. (Find the worm button on the main menu to enable worm)",
 	"dependencies": {
@@ -21,6 +21,6 @@
 			"resources/mouth_flipped.png",
 			"resources/button.png"
 		]
-	}
+	},
+	"tags": [ "modtober25" ]
 }
-
