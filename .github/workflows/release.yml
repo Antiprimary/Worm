@@ -9,44 +9,41 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
-    runs-on: windows-latest
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - { name: Windows,   os: windows-latest }
+          - { name: macOS,     os: macos-latest }
+          - { name: iOS,       os: macos-latest,  target: iOS }
+          - { name: Android32, os: ubuntu-latest, target: Android32 }
+          - { name: Android64, os: ubuntu-latest, target: Android64 }
+    name: ${{ matrix.config.name }}
+    runs-on: ${{ matrix.config.os }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: geode-sdk/build-geode-mod@main
+        with:
+          target: ${{ matrix.config.target }}
+          combine: true
 
-      - name: Build .geode
-        id: build
-        uses: geode-sdk/build-geode-mod@main
+  package-and-release:
+    name: Package & Release
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Combine platforms
+        id: combine
+        uses: geode-sdk/build-geode-mod/combine@main
 
-      - name: Show output path (debug)
-        run: echo "GEODE_PATH=${{ steps.build.outputs.build-output }}"
+      - name: Show combined output (debug)
+        run: echo "COMBINED=${{ steps.combine.outputs.build-output }}"
 
-      # Find a .geode file even if build-output is a directory
-      - name: Locate .geode file
-        id: find
-        shell: pwsh
-        run: |
-          $p = "${{ steps.build.outputs.build-output }}"
-          if (Test-Path $p -PathType Container) {
-            Write-Host "Output is a directory: $p"
-            Get-ChildItem -Path $p -Recurse
-            $file = Get-ChildItem -Path $p -Filter *.geode -Recurse | Select-Object -First 1
-          } else {
-            Write-Host "Output is a file: $p"
-            $file = Get-Item -Path $p
-          }
-          if (-not $file) {
-            Write-Error "No .geode found under $p"
-            exit 1
-          }
-          Write-Host "Found .geode: $($file.FullName)"
-          "GEODE_FILE=$($file.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-
-      - name: Create GitHub Release (attach .geode)
+      - name: Create GitHub Release (attach combined .geode)
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.find.outputs.GEODE_FILE }}
+          files: ${{ steps.combine.outputs.build-output }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
