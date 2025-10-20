@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v*.*.*"   # e.g. v1.0.8
 
 permissions:
   contents: write
@@ -37,22 +37,27 @@ jobs:
         id: combine
         uses: geode-sdk/build-geode-mod/combine@main
 
-      # Debug: print where the combiner says the output is
       - name: Show combine output (debug)
         run: echo "COMBINED=${{ steps.combine.outputs.build-output }}"
 
-      # Copy the merged .geode into the repo workspace so softprops can find it
+      # Copy any .geode under the combine output dir into the workspace
       - name: Collect merged .geode
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
           OUT="${{ steps.combine.outputs.build-output }}"
+          echo "Scanning OUT=$OUT"
           mkdir -p "$GITHUB_WORKSPACE/release"
-          if [ -d "$OUT" ]; then
-            find "$OUT" -name '*.geode' -print -exec cp {} "$GITHUB_WORKSPACE/release/' ' \;
-          else
-            cp "$OUT" "$GITHUB_WORKSPACE/release/"
+          mapfile -t files < <(find "$OUT" -type f -name '*.geode' -print)
+          echo "Found ${#files[@]} .geode file(s):"
+          printf '%s\n' "${files[@]}"
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No .geode found under $OUT" >&2
+            exit 1
           fi
+          for f in "${files[@]}"; do
+            cp "$f" "$GITHUB_WORKSPACE/release/"
+          done
           echo "Release dir contents:"
           ls -al "$GITHUB_WORKSPACE/release"
 
