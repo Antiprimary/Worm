@@ -37,13 +37,29 @@ jobs:
         id: combine
         uses: geode-sdk/build-geode-mod/combine@main
 
-      - name: Show combined output (debug)
+      # Debug: print where the combiner says the output is
+      - name: Show combine output (debug)
         run: echo "COMBINED=${{ steps.combine.outputs.build-output }}"
+
+      # Copy the merged .geode into the repo workspace so softprops can find it
+      - name: Collect merged .geode
+        shell: bash
+        run: |
+          set -e
+          OUT="${{ steps.combine.outputs.build-output }}"
+          mkdir -p "$GITHUB_WORKSPACE/release"
+          if [ -d "$OUT" ]; then
+            find "$OUT" -name '*.geode' -print -exec cp {} "$GITHUB_WORKSPACE/release/' ' \;
+          else
+            cp "$OUT" "$GITHUB_WORKSPACE/release/"
+          fi
+          echo "Release dir contents:"
+          ls -al "$GITHUB_WORKSPACE/release"
 
       - name: Create GitHub Release (attach combined .geode)
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.combine.outputs.build-output }}
+          files: ${{ github.workspace }}/release/*.geode
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
