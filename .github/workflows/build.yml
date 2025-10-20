@@ -1,0 +1,18 @@
+name: Build Geode Mod
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: geode-sdk/build-geode-mod@main
+        id: build
+      - name: Upload .geode artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: worm-geode
+          path: ${{ steps.build.outputs.build-output }}
