@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v*.*.*"   # e.g. v1.0.8
+      - "v*.*.*"   #e.g. v1.0.8
 
 permissions:
   contents: write
@@ -39,8 +39,7 @@ jobs:
 
       - name: Show combine output (debug)
         run: echo "COMBINED=${{ steps.combine.outputs.build-output }}"
-
-      # Copy any .geode under the combine output dir into the workspace
+        
       - name: Collect merged .geode
         shell: bash
         run: |
