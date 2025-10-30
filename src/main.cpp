@@ -1,6 +1,7 @@
-//main
 #include <Geode/Geode.hpp>
 #include <Geode/modify/PlayerObject.hpp>
+#include <Geode/binding/HardStreak.hpp>
+#include <Geode/utils/cocos.hpp>
 
 #include <vector>
 #include <deque>
@@ -8,6 +9,7 @@
 #include <cmath>
 #include <typeinfo>
 #include <cstring>
+
 /*
                                                 /~~\
   ____                                         /'o  |
@@ -23,17 +25,19 @@
             `~~~~~
 worm by chev
 */
+
 using namespace geode::prelude;
 using namespace cocos2d;
 
-extern bool gWormOn;
+extern int gWormMode;
+extern int gWormHistory;
 
 static bool gInvisible = true;
 
 class $modify(InvisiblePlayer, PlayerObject) {
 public:
     struct Fields {
-        int maxHistory = 120;
+        int maxHistory = 90;
         std::deque<CCPoint> history;
 
         std::vector<CCSprite*> pool1;
@@ -70,7 +74,7 @@ public:
         PlayerObject::resetObject();
 
         //if not in worm mode dont display worm
-        if (!gWormOn) {
+        if (gWormMode <= 0) {
             clearOverlays();
             this->setVisible(true);
             this->setOpacity(255);
@@ -87,7 +91,7 @@ public:
         PlayerObject::update(dt);
 
         //not worm mode:
-        if (!gWormOn) {
+        if (gWormMode <= 0) {
             hideAll();
             this->setVisible(true);
             this->setOpacity(255);
@@ -109,6 +113,9 @@ public:
         this->setOpacity(0);
         if (!this->isCascadeOpacityEnabled())
             this->setCascadeOpacityEnabled(true);
+
+        // keep trail history in sync with UI (90 for worm, 150 for big worm)
+        syncHistoryLengthWithUI();
 
         ensureAllSprites();
 
@@ -225,6 +232,45 @@ private:
         hideAll();
     }
 
+    void destroyPools() {
+        if (!m_fields->poolsReady) return;
+        auto* parent = this->getParent();
+
+        for (auto* s : m_fields->pool1) {
+            if (s && s->getParent()) s->removeFromParentAndCleanup(false);
+        }
+        for (auto* s : m_fields->pool2) {
+            if (s && s->getParent()) s->removeFromParentAndCleanup(false);
+        }
+        m_fields->pool1.clear();
+        m_fields->pool2.clear();
+
+        if (m_fields->head && m_fields->head->getParent())
+            m_fields->head->removeFromParentAndCleanup(false);
+        if (m_fields->mouth && m_fields->mouth->getParent())
+            m_fields->mouth->removeFromParentAndCleanup(false);
+        if (m_fields->mouthFlipped && m_fields->mouthFlipped->getParent())
+            m_fields->mouthFlipped->removeFromParentAndCleanup(false);
+        if (m_fields->eye && m_fields->eye->getParent())
+            m_fields->eye->removeFromParentAndCleanup(false);
+
+        m_fields->head = nullptr;         m_fields->headReady = false;
+        m_fields->mouth = nullptr;        m_fields->mouthReady = false;
+        m_fields->mouthFlipped = nullptr; m_fields->mouthFlippedReady = false;
+        m_fields->eye = nullptr;          m_fields->eyeReady = false;
+
+        m_fields->poolsReady = false;
+    }
+
+    void syncHistoryLengthWithUI() {
+        int desired = std::max(1, gWormHistory);
+        if (m_fields->maxHistory != desired) {
+            m_fields->maxHistory = desired;
+            clearOverlays();
+            destroyPools();
+        }
+    }
+
     static void stopAndHide(CCParticleSystemQuad * ps) {
         if (!ps) return;
         ps->stopSystem();
@@ -254,20 +300,16 @@ private:
         s->setOpacity(0);
     }
 
-    static bool looksLikeHardStreak(CCNode * n) {
-        if (!n) return false;
-        const char* name = typeid(*n).name();
-        return (name && std::strstr(name, "HardStreak") != nullptr);
-    }
-
     static void hideIfStreakish(CCNode * n) {
         if (!n) return;
-        if (auto* ms = dynamic_cast<CCMotionStreak*>(n)) {
+
+        if (auto* ms = typeinfo_cast<CCMotionStreak*>(n)) {
             hideStreak(ms);
             return;
         }
-        if (looksLikeHardStreak(n)) {
-            n->setVisible(false);
+        if (auto* hs = typeinfo_cast<HardStreak*>(n)) {
+            hs->setVisible(false);
+            return;
         }
     }
 
@@ -275,9 +317,7 @@ private:
         if (!node) return;
         auto* arr = node->getChildren();
         if (!arr) return;
-        CCObject* obj = nullptr;
-        CCARRAY_FOREACH(arr, obj) {
-            auto* ch = static_cast<CCNode*>(obj);
+        for (auto* ch : CCArrayExt<CCNode*>(arr)) {
             if (!ch) continue;
             hideIfStreakish(ch);
         }
