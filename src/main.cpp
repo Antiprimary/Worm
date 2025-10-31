@@ -114,7 +114,7 @@ public:
         if (!this->isCascadeOpacityEnabled())
             this->setCascadeOpacityEnabled(true);
 
-        // keep trail history in sync with UI (90 for worm, 150 for big worm)
+        //keep trail history in sync with UI (90 for worm, 150 for big worm)
         syncHistoryLengthWithUI();
 
         ensureAllSprites();
