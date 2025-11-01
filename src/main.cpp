@@ -76,7 +76,7 @@ public:
         //if not in worm mode dont display worm
         if (gWormMode <= 0) {
             clearOverlays();
-            this->setVisible(true);
+            this->m_mainLayer->setVisible(true);
             this->setOpacity(255);
             return;
         }
@@ -93,23 +93,25 @@ public:
         //not worm mode:
         if (gWormMode <= 0) {
             hideAll();
-            this->setVisible(true);
+            this->m_mainLayer->setVisible(true);
             this->setOpacity(255);
             return;
         }
+
+        this->toggleGhostEffect(GhostType::Disabled);
 
         //worm mode:
         disableKnownPlayerParticles();
         hidePlayerTrails();
 
         if (!gInvisible) {
-            this->setVisible(true);
+            this->m_mainLayer->setVisible(true);
             this->setOpacity(255);
             hideAll();
             return;
         }
 
-        this->setVisible(false);
+        this->m_mainLayer->setVisible(false);
         this->setOpacity(0);
         if (!this->isCascadeOpacityEnabled())
             this->setCascadeOpacityEnabled(true);
@@ -166,10 +168,10 @@ public:
 
                 if (hide) hide->setVisible(false);
                 if (show) {
-                    show->setVisible(true);
+                    show->setVisible(this->isVisible());
                     show->setPosition(p);
                     show->setRotation(0.0f);
-                    show->setScale(m_fields->trailScale * miniMult);
+                    show->setScale(m_fields->trailScale * this->m_mainLayer->getScale() * miniMult);
                 }
             }
             else {
@@ -180,10 +182,10 @@ public:
 
         //worm head
         if (m_fields->head) {
-            m_fields->head->setVisible(true);
+            m_fields->head->setVisible(this->isVisible());
             m_fields->head->setPosition(cur);
             m_fields->head->setRotation(0.0f);
-            m_fields->head->setScale(m_fields->headScale * miniMult);
+            m_fields->head->setScale(m_fields->headScale * this->m_mainLayer->getScale() * miniMult);
         }
 
         //worm mouth
@@ -193,25 +195,25 @@ public:
 
             if (hide) hide->setVisible(false);
             if (show) {
-                show->setVisible(true);
+                show->setVisible(this->isVisible());
                 show->setPosition(ccp(
-                    cur.x + m_fields->mouthOffsetX * miniMult,
-                    cur.y + (m_fields->mouthOffsetY * gMult * miniMult)
+                    cur.x + m_fields->mouthOffsetX * miniMult * this->m_mainLayer->getScale(),
+                    cur.y + (m_fields->mouthOffsetY * gMult * miniMult * this->m_mainLayer->getScale())
                 ));
                 show->setRotation(0.0f);
-                show->setScale(m_fields->mouthScale * miniMult);
+                show->setScale(m_fields->mouthScale * this->m_mainLayer->getScale() * miniMult);
             }
         }
 
         //worm eye
         if (m_fields->eye) {
-            m_fields->eye->setVisible(true);
+            m_fields->eye->setVisible(this->isVisible());
             m_fields->eye->setPosition(ccp(
-                cur.x + m_fields->eyeOffsetX * miniMult,
-                cur.y + (m_fields->eyeOffsetY * gMult * miniMult)
+                cur.x + m_fields->eyeOffsetX * miniMult * this->m_mainLayer->getScale(),
+                cur.y + (m_fields->eyeOffsetY * gMult * miniMult * this->m_mainLayer->getScale())
             ));
             m_fields->eye->setRotation(0.0f);
-            m_fields->eye->setScale(m_fields->eyeScale * miniMult);
+            m_fields->eye->setScale(m_fields->eyeScale * this->m_mainLayer->getScale() * miniMult);
         }
     }
 
@@ -342,7 +344,7 @@ private:
                 CCSprite* a = CCSprite::create("circle.png"_spr);
                 if (a) {
                     a->setAnchorPoint(ccp(0.5f, 0.5f));
-                    a->setScale(m_fields->trailScale);
+                    a->setScale(m_fields->trailScale * this->m_mainLayer->getScale());
                     a->setVisible(false);
                     parent->addChild(a, baseZ + i);
                 }
@@ -351,7 +353,7 @@ private:
                 CCSprite* b = CCSprite::create("circle.png"_spr);
                 if (b) {
                     b->setAnchorPoint(ccp(0.5f, 0.5f));
-                    b->setScale(m_fields->trailScale);
+                    b->setScale(m_fields->trailScale * this->m_mainLayer->getScale());
                     b->setVisible(false);
                     parent->addChild(b, baseZ + i);
                 }
@@ -364,7 +366,7 @@ private:
             CCSprite* h = CCSprite::create("circle.png"_spr);
             if (h) {
                 h->setAnchorPoint(ccp(0.5f, 0.5f));
-                h->setScale(m_fields->headScale);
+                h->setScale(m_fields->headScale * this->m_mainLayer->getScale());
                 h->setVisible(false);
                 parent->addChild(h, baseZ + m_fields->maxHistory + 5);
                 m_fields->head = h;
@@ -376,7 +378,7 @@ private:
             CCSprite* m = CCSprite::create("mouth.png"_spr);
             if (m) {
                 m->setAnchorPoint(ccp(0.5f, 0.5f));
-                m->setScale(m_fields->mouthScale);
+                m->setScale(m_fields->mouthScale * this->m_mainLayer->getScale());
                 m->setVisible(false);
                 parent->addChild(m, baseZ + m_fields->maxHistory + 6);
                 m_fields->mouth = m;
@@ -389,7 +391,7 @@ private:
             CCSprite* mf = CCSprite::create("mouth_flipped.png"_spr);
             if (mf) {
                 mf->setAnchorPoint(ccp(0.5f, 0.5f));
-                mf->setScale(m_fields->mouthScale);
+                mf->setScale(m_fields->mouthScale * this->m_mainLayer->getScale());
                 mf->setVisible(false);
                 parent->addChild(mf, baseZ + m_fields->maxHistory + 6);
                 m_fields->mouthFlipped = mf;
@@ -401,7 +403,7 @@ private:
             CCSprite* e = CCSprite::create("circle.png"_spr);
             if (e) {
                 e->setAnchorPoint(ccp(0.5f, 0.5f));
-                e->setScale(m_fields->eyeScale);
+                e->setScale(m_fields->eyeScale * this->m_mainLayer->getScale());
                 e->setVisible(false);
                 parent->addChild(e, baseZ + m_fields->maxHistory + 7);
                 e->setColor({ 0, 0, 0 });
