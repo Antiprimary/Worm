@@ -3,10 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v*.*.*"   #e.g. v1.0.8
-
-permissions:
-  contents: write
+      - "v*"
 
 jobs:
   build:
@@ -15,55 +12,55 @@ jobs:
       matrix:
         config:
           - { name: Windows,   os: windows-latest }
-          - { name: macOS,     os: macos-latest }
-          - { name: iOS,       os: macos-latest,  target: iOS }
-          - { name: Android32, os: ubuntu-latest, target: Android32 }
           - { name: Android64, os: ubuntu-latest, target: Android64 }
+
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
+
     steps:
       - uses: actions/checkout@v4
-      - uses: geode-sdk/build-geode-mod@main
+
+      - name: Setup Geode SDK
+        uses: geode-sdk/setup-geode@main
+
+      - name: Build with Geode SDK
+        uses: geode-sdk/build-geode-mod@main
         with:
           target: ${{ matrix.config.target }}
-          combine: true
+          combine: false
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.config.name }}-artifact
+          path: |
+            build/*.geode
+            build/*.dll
+            build/*.so
 
   package-and-release:
-    name: Package & Release
+    needs: build
     runs-on: ubuntu-latest
-    needs: [build]
+
     steps:
-      - name: Combine platforms
-        id: combine
-        uses: geode-sdk/build-geode-mod/combine@main
+      - uses: actions/checkout@v4
 
-      - name: Show combine output (debug)
-        run: echo "COMBINED=${{ steps.combine.outputs.build-output }}"
-        
-      - name: Collect merged .geode
-        shell: bash
+      - name: Setup Geode SDK
+        uses: geode-sdk/setup-geode@main
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: builds
+
+      - name: Combine builds into one .geode
         run: |
-          set -euo pipefail
-          OUT="${{ steps.combine.outputs.build-output }}"
-          echo "Scanning OUT=$OUT"
-          mkdir -p "$GITHUB_WORKSPACE/release"
-          mapfile -t files < <(find "$OUT" -type f -name '*.geode' -print)
-          echo "Found ${#files[@]} .geode file(s):"
-          printf '%s\n' "${files[@]}"
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "No .geode found under $OUT" >&2
-            exit 1
-          fi
-          for f in "${files[@]}"; do
-            cp "$f" "$GITHUB_WORKSPACE/release/"
-          done
-          echo "Release dir contents:"
-          ls -al "$GITHUB_WORKSPACE/release"
+          mkdir -p output
+          geode combine builds/**/**/*.geode -o output/antiprime.autobuild.geode
+          echo "Combined build saved to output/antiprime.autobuild.geode"
 
-      - name: Create GitHub Release (attach combined .geode)
+      - name: Upload combined release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ github.workspace }}/release/*.geode
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          files: output/antiprime.autobuild.geode
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
